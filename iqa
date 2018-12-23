@@ -1,0 +1,74 @@
+# -*- coding: utf-8 -*-
+import keras
+import random
+import os
+import numpy as np
+from keras.preprocessing import image
+from keras.models import  Sequential,load_model
+from keras.applications.resnet50 import ResNet50
+from keras.layers import Dense, Flatten,Dropout,GlobalAveragePooling2D,Activation,BatchNormalization
+import keras.optimizers as optimizers
+import matplotlib.pyplot as plt
+from keras import backend as K
+import cv2
+batch_size = 3
+K.clear_session()
+model = Sequential()
+resnet  = ResNet50(include_top=False,input_shape=(384,512, 3),pooling='avg',weights='imagenet')
+model.add(resnet)
+# model.add(Activation('relu'))
+model.add(Dense(1))
+model.layers[0].trainable = False
+model.summary()
+model.compile(loss='mse', optimizer=optimizers.adam(lr=0.001))
+impath = 'F:/xierui/image/'
+labelpath = 'mos.txt'
+b=[]
+for i in range(2400):
+        b.append(i)
+random.shuffle(b)
+def fetch_images():
+        files = os.listdir(impath)
+        label = np.loadtxt(labelpath)
+        all_data = []
+        all_label = []
+        b_s = 32
+        while (1):
+            for i in range(2400):
+                b_s -= 1
+                file = files[b[i]]
+                r_name = impath + file
+                data = cv2.imread(r_name)
+                label1 = label[b[i]]
+                if b_s != 0:
+                    all_data.append(data)
+                    all_label.append(label1)
+                elif b_s == 0:
+                    all_data.append(data)
+                    all_label.append(label1)
+                    f_data = np.reshape(all_data, (-1, 384, 512, 3))
+                    f_label = np.reshape(all_label, (-1, 1))
+                    yield (f_data, f_label)
+                    all_data = []
+                    all_label = []
+                    b_s = 32
+# model.load_weights('my_model_weights_False_8.h5')
+hist = model.fit_generator(fetch_images(), steps_per_epoch=75, epochs=30)
+files = os.listdir(impath)
+num = len(files)
+a=[]
+for i in range(2400,3000):
+    r_name1 = impath + files[i]
+    im1 = cv2.imread(r_name1)
+    f_data1 = im1.reshape((-1, 384,512,3))
+    a.append(model.predict(f_data1))
+model.save_weights('my_model_weights_False_8.h5')
+b = np.array(a)
+np.savetxt('result_9.txt',b.reshape(600))
+plt.plot(hist.history['loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train'], loc='upper left')
+plt.show()
+
